@@ -3,44 +3,42 @@ const { count } = require("console");
 const fs = require("fs");
 const { resolve } = require("path");
 
+
 const scraperObject = {
-    url: 'https://hh.ru/search/vacancy?L_is_autosearch=false&area=1&clusters=true&enable_snippets=true&no_magic=true&specialization=1.221&page=',
     async scraper(browser){
+        let data = fs.readFileSync('sortVacancy.json');
+        data = JSON.parse(data);
         let count = 0;
         let urlsPages = [];
         let Interval = setInterval(async () => {
+            if (count === data.length){
+                let doc = JSON.stringify(urlsPages);
+                 fs.writeFileSync('claim.json', doc, 'utf8');
+                clearInterval(Interval);
+                }
+    
+            if(count !== 0){
+                count++;
+            }
             let page = await browser.newPage();
-            console.log(`Navigating to ${this.url}...`);
-            await page.goto(`${this.url + count} `);
-            await page.waitForSelector('.vacancy-serp', {timeout: 600000});
+            console.log(`Navigating to ${data[count].href}...`);
+            page.setDefaultNavigationTimeout(60*1000);
+            await page.goto(`${data[count].href}`);
+            if(count === 0){
+                count++;
+            }
+            await page.waitForSelector('.vacancy-description', {timeout: 600000});
           
-            let urls = await page.$$eval('.vacancy-serp > .vacancy-serp-item', links => {
+            let urls = await page.$eval('.vacancy-description', elem => {
                 let obj = {};
-                obj.href = links.map(el => el.querySelector('.g-user-content > a').href);
-                obj.spec = links.map(el => el.querySelector('.g-user-content > a').textContent);
-                obj.money = links.map(el => el.querySelector('.vacancy-serp-item__sidebar').textContent);
+                obj.skill = elem.querySelectorAll('.bloko-gap_bottom > p')[0].textContent;
+                obj.dayJob = elem.querySelectorAll('.bloko-gap_bottom > p')[1].textContent;
                 return obj;
         });
-
-
+        page.close()
         urlsPages.push(urls);
-
-
         console.log(count)
-        count++;
-        console.log(urlsPages);
-
-
-        if (count === 39){
-            let doc = JSON.stringify(urlsPages);
-             fs.writeFileSync('urlsVacancy.json', doc, 'utf8', (err) => {
-                if(err) throw err
-            });
-            clearInterval(Interval);
-            }
-
-
-        }, 60*1000);
+        }, 15*1000);
 
         
 
